@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SANDEX</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg-elev: #131a22;
+    --bubble-user: #1d4ed8;
+    --bubble-bot: #1a222c;
+    --accent: #22d3ee;
+    --text: #e6edf3;
+    --text-dim: #8b98a5;
+    --border: #23303c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, Roboto, "Segoe UI", sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+  header .logo { font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: 1px; }
+  header button {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 20px; padding: 4px 8px; cursor: pointer;
+  }
+
+  #chat {
+    flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .msg {
+    max-width: 78%; padding: 10px 14px; border-radius: 16px; line-height: 1.4; font-size: 15px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.user { align-self: flex-end; background: var(--bubble-user); border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--bubble-bot); border-bottom-left-radius: 4px; }
+  .msg.typing { color: var(--text-dim); font-style: italic; }
+
+  #inputBar {
+    display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+  #inputBar input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 20px;
+    padding: 10px 16px; color: var(--text); font-size: 15px; outline: none;
+  }
+  #inputBar button {
+    background: var(--accent); border: none; border-radius: 50%; width: 42px; height: 42px;
+    font-size: 18px; color: #06232a; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* Settings overlay */
+  #settings {
+    position: fixed; inset: 0; background: var(--bg); display: none;
+    flex-direction: column; padding: 16px; padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  }
+  #settings.open { display: flex; }
+  #settings h2 { color: var(--accent); margin: 0 0 16px; }
+  #settings label { font-size: 13px; color: var(--text-dim); margin-top: 14px; display: block; }
+  #settings input {
+    width: 100%; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; color: var(--text); font-size: 14px; margin-top: 6px;
+  }
+  #settings .row { display: flex; gap: 10px; margin-top: 22px; }
+  #settings button {
+    flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 15px; cursor: pointer;
+  }
+  #saveBtn { background: var(--accent); color: #06232a; font-weight: 600; }
+  #closeSettingsBtn { background: var(--bg-elev); color: var(--text); border: 1px solid var(--border) !important; }
+  #testBtn { background: var(--bg-elev); color: var(--accent); border: 1px solid var(--accent) !important; margin-top: 10px; width: 100%; }
+  #statusMsg { font-size: 13px; margin-top: 10px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">SANDEX</div>
+    <button id="openSettingsBtn">⚙</button>
+  </header>
+
+  <div id="chat"></div>
+
+  <div id="inputBar">
+    <input id="msgInput" type="text" placeholder="Mesaj yaz..." />
+    <button id="sendBtn">➤</button>
+  </div>
+</div>
+
+<div id="settings">
+  <h2>Ayarlar</h2>
+  <label>Backend URL</label>
+  <input id="backendUrl" type="text" placeholder="https://sandex-api.example.com/chat" />
+  <label>API Token</label>
+  <input id="apiToken" type="text" placeholder="Bearer token" />
+  <button id="testBtn">Bağlantıyı Test Et</button>
+  <div id="statusMsg"></div>
+  <div class="row">
+    <button id="closeSettingsBtn">İptal</button>
+    <button id="saveBtn">Kaydet</button>
+  </div>
+</div>
+
+<script>
+const chat = document.getElementById('chat');
+const msgInput = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+const settingsPanel = document.getElementById('settings');
+const backendUrlInput = document.getElementById('backendUrl');
+const apiTokenInput = document.getElementById('apiToken');
+const statusMsg = document.getElementById('statusMsg');
+
+function loadSettings() {
+  backendUrlInput.value = localStorage.getItem('sandex_backend_url') || '';
+  apiTokenInput.value = localStorage.getItem('sandex_api_token') || '';
+}
+function saveSettings() {
+  localStorage.setItem('sandex_backend_url', backendUrlInput.value.trim());
+  localStorage.setItem('sandex_api_token', apiTokenInput.value.trim());
+}
+
+document.getElementById('openSettingsBtn').onclick = () => {
+  loadSettings();
+  statusMsg.textContent = '';
+  settingsPanel.classList.add('open');
+};
+document.getElementById('closeSettingsBtn').onclick = () => settingsPanel.classList.remove('open');
+document.getElementById('saveBtn').onclick = () => {
+  saveSettings();
+  settingsPanel.classList.remove('open');
+};
+document.getElementById('testBtn').onclick = async () => {
+  const url = backendUrlInput.value.trim();
+  if (!url) { statusMsg.textContent = 'Önce bir URL girin.'; return; }
+  statusMsg.textContent = 'Test ediliyor...';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiTokenInput.value.trim() },
+      body: JSON.stringify({ message: 'ping', session_id: 'test', input_type: 'text' })
+    });
+    statusMsg.textContent = res.ok ? '✅ Bağlantı başarılı.' : '⚠️ Sunucu yanıt verdi ama hata kodu: ' + res.status;
+  } catch (e) {
+    statusMsg.textContent = '❌ Bağlanılamadı. (Demo modda çalışmaya devam edebilirsiniz.)';
+  }
+};
+
+function addMessage(text, sender) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + sender;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+const DEMO_REPLIES = [
+  'Bu bir demo cevaptır — henüz gerçek backend bağlı değil.',
+  'Ayarlar kısmından backend URL ve token girerek gerçek SANDEX zekasına bağlanabilirsin.',
+  'Şu an test modundasın, mesajların gerçek bir AI tarafından işlenmiyor.'
+];
+
+async function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text) return;
+  addMessage(text, 'user');
+  msgInput.value = '';
+
+  const typingEl = addMessage('SANDEX yazıyor...', 'bot typing');
+
+  const url = localStorage.getItem('sandex_backend_url');
+  const token = localStorage.getItem('sandex_api_token');
+
+  if (!url) {
+    setTimeout(() => {
+      typingEl.remove();
+      addMessage(DEMO_REPLIES[Math.floor(Math.random() * DEMO_REPLIES.length)], 'bot');
+    }, 600);
+    return;
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+      body: JSON.stringify({ message: text, session_id: 'default', input_type: 'text' })
+    });
+    const data = await res.json();
+    typingEl.remove();
+    addMessage(data.reply || '(boş cevap)', 'bot');
+  } catch (e) {
+    typingEl.remove();
+    addMessage('Backend’e ulaşılamıyor, ayarları kontrol edin.', 'bot');
+  }
+}
+
+sendBtn.onclick = sendMessage;
+msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+addMessage('Merhaba! Ben SANDEX. Şu an demo modundayım — ayarlardan backend bağlantısı kurabilirsin.', 'bot');
+</script>
+</body>
+</html>

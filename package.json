@@ -1,0 +1,15 @@
+{
+  "name": "sandex",
+  "version": "1.0.0",
+  "description": "SANDEX kişisel asistan - Android APK (Capacitor)",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/android": "^6.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  }
+}
